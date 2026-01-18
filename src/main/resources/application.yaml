@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: ecommerce
+
+  # ===============================
+  # DATASOURCE (MySQL + HikariCP)
+  # ===============================
+  datasource:
+    url: jdbc:mysql://localhost:3306/ecommerce?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # ===============================
+  # JPA / HIBERNATE
+  # ===============================
+  jpa:
+    open-in-view: false
+    show-sql: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: false
+
+  # ===============================
+  # STOCK RESERVATION CONFIGURATION
+  # ===============================
+  stock-reservation:
+    expiration-minutes: 15
+
+  # ===============================
+  # MAIL
+  # ===============================
+  mail:
+    host: sandbox.smtp.mailtrap.io
+    port: 2525
+    username: 1c2586a34a7dde
+    password: d785467697069d
+    properties:
+      mail:
+        SMTP:
+          auth: true
+          STARTTLS:
+            enable: true
+
+# ===============================
+# SERVER
+# ===============================
+server:
+  port: 8080
+
+# ===============================
+# LOGGING
+# ===============================
+logging:
+  level:
+    root: INFO
+    org.springframework: INFO
+    com.example: DEBUG
+
+# ===============================
+# APPLICATION CUSTOM CONFIG
+# ===============================
+app:
+  security:
+    jwt:
+      secret: change-me-in-prod
+      expiration-ms: 86400000
+
+  cors:
+    allowed-origins: "*"
+
+  default-page-size: 20

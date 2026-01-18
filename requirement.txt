@@ -1,0 +1,216 @@
+## 1. ĐÁNH GIÁ SƠ BỘ & PHÂN TÍCH YÊU CẦU
+
+### 1.1 Tóm tắt yêu cầu từ Email khách hàng
+
+Khách hàng cần:
+
+- Backend API cho e-commerce
+- Không cần UI
+- Ưu tiên **inventory chính xác – không oversell**
+- Có cart, checkout, order, tracking
+- Hoàn thành trong **2 tuần**
+
+---
+
+### 1.2 Xác định Scope (2 tuần)
+
+### ✅ MUST-HAVE (Bắt buộc làm – Phase 1)
+
+| Nhóm | Tính năng |
+| --- | --- |
+| Catalog | - Xem danh sách sản phẩm (pagination)- Lọc theo loại, giá- SKU (size, màu) |
+| Cart | - Thêm / sửa / xóa item- Check tồn kho sơ bộ |
+| Inventory | - Hold stock khi checkout (10–15 phút)- Xử lý race condition “last item” |
+| Checkout | - Tạo đơn hàng- COD- Chuyển khoản (manual) |
+| Order | - Trạng thái đơn hàng- Rollback stock khi hủy |
+| Tracking | - Link tracking không cần login |
+| Email | - Gửi email xác nhận đơn |
+| Admin | - Xem danh sách đơn- Đổi trạng thái đơn |
+
+---
+
+### ⚠️ NICE-TO-HAVE (Nếu còn thời gian)
+
+| Tính năng | Ghi chú |
+| --- | --- |
+| SePay Webhook thật | Có thể giả lập |
+| Cache catalog | Tối ưu sau |
+| Rate limit | Không critical |
+| Audit log | Phase sau |
+
+### 1.3 Gap Analysis (Email vs Thực tế kỹ thuật)
+
+| Yêu cầu từ Email | Thực tế kỹ thuật |
+| --- | --- |
+| “Giữ hàng khi checkout” | Cần Redis + Reservation logic |
+| “Không bán quá số” | Phải xử lý atomic / lock |
+| “SePay tự động” | Cần webhook, verify signature |
+| “Xong 2 tuần” | Không thể làm full payment  |
+
+👉 **Nhận định:**
+
+Email mô tả **business need**, chưa phản ánh:
+
+- Độ phức tạp inventory concurrency
+- Hạ tầng cần thiết (Redis, background job)
+- Testing race condition
+
+---
+
+### 1.4 Đánh giá khả năng hoàn thiện & Cam kết
+
+**Cam kết Phase 1: ~90% yêu cầu nghiệp vụ cốt lõi**
+
+| Hạng mục | Trạng thái |
+| --- | --- |
+| Catalog | ✅ 100% |
+| Cart | ✅ 100% |
+| Inventory hold | ✅ 100% |
+| COD | ✅ 100% |
+| SePay | ⚠️ 50% (giả lập webhook) |
+| Tracking | ✅ 100% |
+| Admin | ✅ 100% |
+
+### ✂️ Đề xuất cắt giảm (nếu quá tải)
+
+- SePay: **mock webhook**
+- Không tối ưu performance sâu (cache nâng cao)
+
+## 2. Thiết kế hệ thống
+
+### 2.1 Database design
+
+### `roles`
+
+| Field | Type |
+| --- | --- |
+| id | bigint (PK) |
+| name | varchar |
+| description | text |
+
+### `users`
+
+| Field | Type |  |
+| --- | --- | --- |
+| id | bigint (PK) |  |
+| email  | varchar (unique) |  |
+| password_hash  | VARCHAR |  |
+| full_name  | VARCHAR |  |
+| role_id  | BIGINT (FK) |  |
+| status  | ENUM | ACTIVE,INACTIVE |
+| created_at  | TIMESTAMP |  |
+| updated_at  | TIMESTAMP |  |
+
+### `Categories`
+
+| Field | Type |
+| --- | --- |
+| id | bigint (PK) |
+| name | varchar(unique) |
+| description | text |
+
+### `products`
+
+| Field | Type |  |
+| --- | --- | --- |
+| id | bigint (PK) |  |
+| name | varchar |  |
+| category_id | bigint (FK) |  |
+| description | text |  |
+| status | enum | ACTIVE,INACTIVE |
+| created_at | timestamp |  |
+| update_at | timestamp |  |
+
+---
+
+### `product_variants` (SKU)
+
+| Field | Type |  |
+| --- | --- | --- |
+| id | bigint (PK) |  |
+| product_id | bigint (FK) |  |
+| size | int |  |
+| color | enum |  |
+| price | decimal |  |
+| stock_quantity | int |  |
+| status | enum | ACTIVE,INACTIVE |
+| created_at | timestamp |  |
+| update_at | timestamp |  |
+
+**Lý do tách SKU**
+
+- Quản lý tồn kho theo size/màu
+- Tránh duplicated product
+
+---
+
+### `carts`
+
+| Field | Type |  |
+| --- | --- | --- |
+| id | bigint |  |
+| cart_token | uuid(unique) |  |
+| user_id | bigint(nullable) |  |
+| status | enum | ACTIVE,CHECKED_OUT,EXPIRED |
+| expires_at | timestamp |  |
+| created_at | timestamp |  |
+| update_at | timestamp |  |
+
+---
+
+### `cart_items`
+
+| Field | Type |
+| --- | --- |
+| id | bigint(PK) |
+| cart_id | bigint(FK) |
+| sku_id | bigint(FK) |
+| quantity | int |
+
+---
+
+### `orders`
+
+| Field | Type |  |
+| --- | --- | --- |
+| id | bigint |  |
+| order_code | varchar |  |
+| user_id | bigint |  |
+| status | enum | PENDING,PAID,CANCELLED,SHIPPED,COMPLETED |
+| payment_method | enum | CASH,CARD,COD |
+| totalMoney | Long |  |
+| currency | varchar |  |
+| shipping_address | text |  |
+| tracking_token | uuid |  |
+| created_at | timestamp |  |
+| paid_at  | timestamp |  |
+
+---
+
+### `order_items`
+
+| Field | Type |
+| --- | --- |
+| id | bigint(PK) |
+| order_id | bigint(FK) |
+| sku_id | bigint |
+| price_checkout | decimal |
+| quantity | int |
+
+---
+
+### `stock_reservations`
+
+| Field | Type |  |
+| --- | --- | --- |
+| id | bigint(PK) |  |
+| sku_id | bigint(FK) |  |
+| order_id | bigint(FK) |  |
+| quantity | int |  |
+| status | enum | RESERVED,CONSUMED,RELEASED |
+| expires_at | timestamp |  |
+
+**Lý do bảng này tồn tại**
+
+- Giữ stock tạm
+- Rollback khi timeout hoặc cancel

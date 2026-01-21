@@ -1,6 +1,6 @@
 spring:
   application:
-    name: ecommerce
+      name: ecommerce
 
   # ===============================
   # DATASOURCE (MySQL + HikariCP)
@@ -21,8 +21,16 @@ spring:
       ddl-auto: update
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
         format_sql: false
+
+  # ===============================
+  # REDIS
+  # ===============================
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 60000
 
   # ===============================
   # STOCK RESERVATION CONFIGURATION
@@ -59,6 +67,11 @@ logging:
     root: INFO
     org.springframework: INFO
     com.example: DEBUG
+    org.springframework.security: DEBUG
+
+# ===============================
+# ACTUATOR & MONITORING
+# ===============================
 
 # ===============================
 # APPLICATION CUSTOM CONFIG
@@ -66,10 +79,14 @@ logging:
 app:
   security:
     jwt:
-      secret: change-me-in-prod
-      expiration-ms: 86400000
+      secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      expiration-ms: 86400000  # 24 hours
+      refresh-expiration-ms: 604800000  # 7 days
 
   cors:
-    allowed-origins: "*"
+    allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:4200}
+    allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+    allowed-headers: "*"
+    allow-credentials: true
 
   default-page-size: 20

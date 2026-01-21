@@ -1,0 +1,740 @@
+{
+  "info": {
+    "name": "E-commerce API - Edge Cases Testing",
+    "description": "Edge cases testing collection: Out of Stock, Race Condition, Idempotency, Rollback, Reservation Expiry",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cartToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cartItemId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "orderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "firstOrderCode",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "testSkuId",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "1. Setup",
+      "description": "Initial setup and login",
+      "item": [
+        {
+          "name": "Login Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', jsonData.data.accessToken);",
+                  "    console.log('✅ Access token saved');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"customer@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get System Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/test/system-info",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "test", "system-info"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Out of Stock Tests",
+      "description": "Test out of stock prevention",
+      "item": [
+        {
+          "name": "Create Cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cart created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('cartToken', jsonData.data.cartToken);",
+                  "    console.log('✅ Cart token:', jsonData.data.cartToken);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/carts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "carts"]
+            }
+          }
+        },
+        {
+          "name": "Add Out of Stock Item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should accept item (will fail at checkout)', function () {",
+                  "    pm.expect([200, 201]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"skuId\": 1,\n  \"quantity\": 999\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/carts/{{cartToken}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "carts", "{{cartToken}}", "items"]
+            }
+          }
+        },
+        {
+          "name": "Checkout (Should Fail)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Checkout failed - out of stock', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.false;",
+                  "    pm.expect(jsonData.message).to.include('Insufficient stock');",
+                  "    console.log('✅ Out of stock prevention working');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cartToken\": \"{{cartToken}}\",\n  \"paymentMethod\": \"COD\",\n  \"shippingAddress\": \"123 Out of Stock Test Street\",\n  \"idempotencyKey\": \"{{$guid}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/checkout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "checkout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Race Condition Tests",
+      "description": "Test concurrent checkout with limited stock",
+      "item": [
+        {
+          "name": "Concurrent Checkout Setup",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Create unique cart for each iteration",
+                  "const baseUrl = pm.collectionVariables.get('baseUrl');",
+                  "const accessToken = pm.collectionVariables.get('accessToken');",
+                  "",
+                  "// Create cart",
+                  "pm.sendRequest({",
+                  "    url: baseUrl + '/api/carts',",
+                  "    method: 'POST',",
+                  "    header: {",
+                  "        'Authorization': 'Bearer ' + accessToken",
+                  "    }",
+                  "}, function (err, response) {",
+                  "    if (err) {",
+                  "        console.error('❌ Failed to create cart:', err);",
+                  "        return;",
+                  "    }",
+                  "    ",
+                  "    const cartData = response.json();",
+                  "    const cartToken = cartData.data.cartToken;",
+                  "    pm.collectionVariables.set('cartToken', cartToken);",
+                  "    ",
+                  "    // Add item to cart",
+                  "    pm.sendRequest({",
+                  "        url: baseUrl + '/api/carts/' + cartToken + '/items',",
+                  "        method: 'POST',",
+                  "        header: {",
+                  "            'Authorization': 'Bearer ' + accessToken,",
+                  "            'Content-Type': 'application/json'",
+                  "        },",
+                  "        body: {",
+                  "            mode: 'raw',",
+                  "            raw: JSON.stringify({",
+                  "                'skuId': 15,",
+                  "                'quantity': 1",
+                  "            })",
+                  "        }",
+                  "    }, function (err, response) {",
+                  "        if (err) {",
+                  "            console.error('❌ Failed to add item:', err);",
+                  "        }",
+                  "    });",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Response is 201 or 400', function () {",
+                  "    pm.expect([201, 400]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "const result = pm.response.code === 201 ? '✅ SUCCESS' : '❌ FAILED (Out of stock)';",
+                  "console.log('Checkout result:', result, '- Status:', pm.response.code);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cartToken\": \"{{cartToken}}\",\n  \"paymentMethod\": \"COD\",\n  \"shippingAddress\": \"Race Condition Test\",\n  \"idempotencyKey\": \"{{$guid}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/checkout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "checkout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Reservation Expiry Tests",
+      "description": "Test 15-minute reservation expiry",
+      "item": [
+        {
+          "name": "Create Cart for Reservation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cart created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('cartToken', jsonData.data.cartToken);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/carts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "carts"]
+            }
+          }
+        },
+        {
+          "name": "Add Item (Creates Reservation)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Item added - reservation created', function () {",
+                  "    pm.expect([200, 201]).to.include(pm.response.code);",
+                  "    console.log('✅ Reservation created. Expires in 15 minutes.');",
+                  "    console.log('⏰ Wait 15+ minutes or run manual cleanup to test expiry.');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"skuId\": 1,\n  \"quantity\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/carts/{{cartToken}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "carts", "{{cartToken}}", "items"]
+            }
+          }
+        },
+        {
+          "name": "Check Cart Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cart is active', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.status).to.eql('ACTIVE');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/carts/{{cartToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "carts", "{{cartToken}}"]
+            }
+          }
+        },
+        {
+          "name": "Trigger Manual Cleanup",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cleanup triggered', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    console.log('✅ Cleanup completed. Check DB for released reservations.');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/test/cleanup-reservations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "test", "cleanup-reservations"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Idempotency Tests",
+      "description": "Test idempotency with same key",
+      "item": [
+        {
+          "name": "Setup Cart for Idempotency",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cart created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('cartToken', jsonData.data.cartToken);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/carts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "carts"]
+            }
+          }
+        },
+        {
+          "name": "Add Item to Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"skuId\": 1,\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/carts/{{cartToken}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "carts", "{{cartToken}}", "items"]
+            }
+          }
+        },
+        {
+          "name": "Checkout with Fixed Key (1st)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('First checkout successful', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('firstOrderCode', jsonData.data.orderCode);",
+                  "    pm.collectionVariables.set('orderId', jsonData.data.orderId);",
+                  "    console.log('✅ First order created:', jsonData.data.orderCode);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cartToken\": \"{{cartToken}}\",\n  \"paymentMethod\": \"COD\",\n  \"shippingAddress\": \"Idempotency Test Address\",\n  \"idempotencyKey\": \"FIXED-KEY-12345\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/checkout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "checkout"]
+            }
+          }
+        },
+        {
+          "name": "Checkout with Same Key (2nd)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should return same order (200 OK)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var jsonData = pm.response.json();",
+                  "    var firstOrderCode = pm.collectionVariables.get('firstOrderCode');",
+                  "    pm.expect(jsonData.data.orderCode).to.eql(firstOrderCode);",
+                  "    console.log('✅ Idempotency working! Same order returned:', jsonData.data.orderCode);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cartToken\": \"{{cartToken}}\",\n  \"paymentMethod\": \"COD\",\n  \"shippingAddress\": \"Idempotency Test Address\",\n  \"idempotencyKey\": \"FIXED-KEY-12345\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/checkout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "checkout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Rollback Tests",
+      "description": "Test rollback when partial out of stock",
+      "item": [
+        {
+          "name": "Setup Mixed Stock Cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cart created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('cartToken', jsonData.data.cartToken);",
+                  "    console.log('⚠️ Next: Add items (SKU 23, 24, 25) manually');",
+                  "    console.log('⚠️ Make sure SKU 24 has stock = 0 in DB');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/carts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "carts"]
+            }
+          }
+        },
+        {
+          "name": "Add Item 1 (In Stock)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"skuId\": 23,\n  \"quantity\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/carts/{{cartToken}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "carts", "{{cartToken}}", "items"]
+            }
+          }
+        },
+        {
+          "name": "Add Item 2 (Out of Stock)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"skuId\": 24,\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/carts/{{cartToken}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "carts", "{{cartToken}}", "items"]
+            }
+          }
+        },
+        {
+          "name": "Add Item 3 (In Stock)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"skuId\": 25,\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/carts/{{cartToken}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "carts", "{{cartToken}}", "items"]
+            }
+          }
+        },
+        {
+          "name": "Checkout (Should Fail & Rollback)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Checkout failed at item 2', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.include('Insufficient stock');",
+                  "    console.log('✅ Checkout failed as expected');",
+                  "    console.log('⚠️ Verify in DB: Stock for SKU 23 and 25 should be UNCHANGED (rollback worked)');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cartToken\": \"{{cartToken}}\",\n  \"paymentMethod\": \"COD\",\n  \"shippingAddress\": \"Rollback Test Address\",\n  \"idempotencyKey\": \"{{$guid}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/checkout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "checkout"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+

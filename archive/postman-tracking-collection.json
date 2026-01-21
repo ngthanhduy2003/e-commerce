@@ -1,0 +1,685 @@
+{
+  "info": {
+    "name": "E-commerce - Order Tracking Tests",
+    "description": "Test order tracking feature (NO LOGIN REQUIRED - Public access)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cartToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "trackingToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "orderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "currentTrackingToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Setup (Create Order)",
+      "description": "Create a new order to get tracking token",
+      "item": [
+        {
+          "name": "1.1 Login Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', jsonData.data.accessToken);",
+                  "    console.log('✅ Access token saved');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"customer@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "1.2 Create Cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cart created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('cartToken', jsonData.data.cartToken);",
+                  "    console.log('✅ Cart token:', jsonData.data.cartToken);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/carts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "carts"]
+            }
+          }
+        },
+        {
+          "name": "1.3 Add Item to Cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Item added', function () {",
+                  "    pm.expect([200, 201]).to.include(pm.response.code);",
+                  "    console.log('✅ Item added to cart');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"skuId\": 1,\n  \"quantity\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/carts/{{cartToken}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "carts", "{{cartToken}}", "items"]
+            }
+          }
+        },
+        {
+          "name": "1.4 Checkout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Checkout successful', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('trackingToken', jsonData.data.trackingToken);",
+                  "    pm.collectionVariables.set('orderId', jsonData.data.id);",
+                  "    ",
+                  "    console.log('====================================');",
+                  "    console.log('✅ ORDER CREATED SUCCESSFULLY');",
+                  "    console.log('====================================');",
+                  "    console.log('Order Code:', jsonData.data.orderCode);",
+                  "    console.log('Order ID:', jsonData.data.id);",
+                  "    console.log('Status:', jsonData.data.status);",
+                  "    console.log('Total:', jsonData.data.totalMoney, jsonData.data.currency);",
+                  "    console.log('');",
+                  "    console.log('🔗 TRACKING TOKEN (NO LOGIN NEEDED):');",
+                  "    console.log(jsonData.data.trackingToken);",
+                  "    console.log('');",
+                  "    console.log('📦 TRACKING URL:');",
+                  "    console.log(pm.collectionVariables.get('baseUrl') + '/api/tracking/' + jsonData.data.trackingToken);",
+                  "    console.log('====================================');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cartToken\": \"{{cartToken}}\",\n  \"paymentMethod\": \"COD\",\n  \"shippingAddress\": \"123 Test Street, Tracking Test, Vietnam\",\n  \"idempotencyKey\": \"{{$guid}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/checkout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "checkout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Track Order (NO LOGIN)",
+      "description": "Test tracking WITHOUT authentication - Public access",
+      "item": [
+        {
+          "name": "2.1 Track Order by Token (Public)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is successful', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Order details present', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.exist;",
+                  "    pm.expect(jsonData.data.orderCode).to.exist;",
+                  "    pm.expect(jsonData.data.status).to.exist;",
+                  "    pm.expect(jsonData.data.trackingToken).to.exist;",
+                  "});",
+                  "",
+                  "pm.test('Has order items', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.items).to.be.an('array');",
+                  "    pm.expect(jsonData.data.items.length).to.be.above(0);",
+                  "});",
+                  "",
+                  "pm.test('No authentication required', function () {",
+                  "    pm.expect(pm.request.headers.has('Authorization')).to.be.false;",
+                  "    console.log('✅ PUBLIC ACCESS CONFIRMED - No auth header used');",
+                  "});",
+                  "",
+                  "// Log order status",
+                  "var jsonData = pm.response.json();",
+                  "console.log('====================================');",
+                  "console.log('📦 ORDER TRACKING RESULT');",
+                  "console.log('====================================');",
+                  "console.log('Order Code:', jsonData.data.orderCode);",
+                  "console.log('Status:', jsonData.data.status);",
+                  "console.log('Total:', jsonData.data.totalMoney, jsonData.data.currency);",
+                  "console.log('Payment:', jsonData.data.paymentMethod);",
+                  "console.log('Address:', jsonData.data.shippingAddress);",
+                  "console.log('Items Count:', jsonData.data.items.length);",
+                  "console.log('Created At:', jsonData.data.createdAt);",
+                  "console.log('====================================');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/tracking/{{trackingToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tracking", "{{trackingToken}}"]
+            }
+          }
+        },
+        {
+          "name": "2.2 Track Invalid Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test('Error message present', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.false;",
+                  "    pm.expect(jsonData.message).to.include('Order not found');",
+                  "});",
+                  "",
+                  "console.log('✅ Invalid token correctly rejected');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/tracking/invalid-token-12345",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tracking", "invalid-token-12345"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Track from init-data.sql",
+      "description": "Test tracking tokens from database sample data",
+      "item": [
+        {
+          "name": "3.1 Track Order 1 (PENDING)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Order tracked successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.orderCode).to.eql('ORD-2026012100001');",
+                  "    console.log('✅ Order 1 Status:', jsonData.data.status);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/tracking/track-abc123def456",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tracking", "track-abc123def456"]
+            }
+          }
+        },
+        {
+          "name": "3.2 Track Order 2 (CONFIRMED)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Order tracked successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.orderCode).to.eql('ORD-2026012100002');",
+                  "    console.log('✅ Order 2 Status:', jsonData.data.status);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/tracking/track-xyz789abc012",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tracking", "track-xyz789abc012"]
+            }
+          }
+        },
+        {
+          "name": "3.3 Track Order 3 (SHIPPED)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Order tracked successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.orderCode).to.eql('ORD-2026012000003');",
+                  "    console.log('✅ Order 3 Status:', jsonData.data.status);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/tracking/track-ship456def789",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tracking", "track-ship456def789"]
+            }
+          }
+        },
+        {
+          "name": "3.4 Track Order 4 (DELIVERED)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Order tracked successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.orderCode).to.eql('ORD-2026011900004');",
+                  "    console.log('✅ Order 4 Status:', jsonData.data.status);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/tracking/track-delivered123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tracking", "track-delivered123"]
+            }
+          }
+        },
+        {
+          "name": "3.5 Track Order 5 (CONFIRMED)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Order tracked successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.orderCode).to.eql('ORD-2026012100005');",
+                  "    console.log('✅ Order 5 Status:', jsonData.data.status);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/tracking/track-jane123abc456",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tracking", "track-jane123abc456"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Track Multiple Orders (Runner)",
+      "description": "Run with Collection Runner to test multiple orders at once",
+      "item": [
+        {
+          "name": "4.1 Track Order - Parameterized",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Array of tracking tokens to test",
+                  "const trackingTokens = [",
+                  "    'track-abc123def456',      // Order 1 - PENDING",
+                  "    'track-xyz789abc012',      // Order 2 - CONFIRMED",
+                  "    'track-ship456def789',     // Order 3 - SHIPPED",
+                  "    'track-delivered123',      // Order 4 - DELIVERED",
+                  "    'track-jane123abc456'      // Order 5 - CONFIRMED",
+                  "];",
+                  "",
+                  "// Get current iteration",
+                  "const iteration = pm.info.iteration;",
+                  "",
+                  "// Set tracking token for this iteration",
+                  "if (iteration < trackingTokens.length) {",
+                  "    pm.collectionVariables.set('currentTrackingToken', trackingTokens[iteration]);",
+                  "    console.log(`🔍 Testing order ${iteration + 1}: ${trackingTokens[iteration]}`);",
+                  "} else {",
+                  "    pm.collectionVariables.set('currentTrackingToken', 'invalid-token');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Tracking works', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Order data present', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data.trackingToken).to.exist;",
+                  "});",
+                  "",
+                  "// Log results",
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    console.log('✅ SUCCESS:', jsonData.data.orderCode, '- Status:', jsonData.data.status);",
+                  "} else {",
+                  "    console.log('❌ FAILED: Order not found');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/tracking/{{currentTrackingToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tracking", "{{currentTrackingToken}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Security Tests",
+      "description": "Verify tracking is public but other endpoints are protected",
+      "item": [
+        {
+          "name": "5.1 Tracking - Public Access (Should Work)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Public access works', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    console.log('✅ Public tracking confirmed - No auth needed');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/tracking/track-abc123def456",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tracking", "track-abc123def456"]
+            }
+          }
+        },
+        {
+          "name": "5.2 Orders API - Protected (Should Fail)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Orders endpoint is protected', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "    console.log('✅ Orders endpoint properly protected - Requires auth');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Full Flow Test",
+      "description": "Complete flow: Checkout → Track (no login)",
+      "item": [
+        {
+          "name": "6.1 Complete Flow",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "console.log('====================================');",
+                  "console.log('STARTING FULL TRACKING TEST FLOW');",
+                  "console.log('====================================');",
+                  "console.log('Step 1: Login');",
+                  "console.log('Step 2: Create Cart');",
+                  "console.log('Step 3: Add Items');",
+                  "console.log('Step 4: Checkout');",
+                  "console.log('Step 5: Track (NO LOGIN)');",
+                  "console.log('====================================');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// This request should be run after completing Setup folder",
+                  "pm.test('Can track without login after checkout', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    ",
+                  "    console.log('====================================');",
+                  "    console.log('✅ FULL FLOW TEST PASSED');",
+                  "    console.log('====================================');",
+                  "    console.log('Created order and tracked successfully');",
+                  "    console.log('WITHOUT needing to login for tracking!');",
+                  "    console.log('Order Code:', jsonData.data.orderCode);",
+                  "    console.log('Status:', jsonData.data.status);",
+                  "    console.log('====================================');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/tracking/{{trackingToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tracking", "{{trackingToken}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+

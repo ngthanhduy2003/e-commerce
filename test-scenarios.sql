@@ -14,9 +14,9 @@
 UPDATE product_variants SET stock_quantity = 100 WHERE id IN (1, 2, 3);
 
 -- Set stock thấp cho test
-UPDATE product_variants SET stock_quantity = 2 WHERE id = 1;  -- iPhone 128GB Black
-UPDATE product_variants SET stock_quantity = 0 WHERE id = 2;  -- iPhone 256GB Black (out of stock)
-UPDATE product_variants SET stock_quantity = 5 WHERE id = 3;  -- iPhone 512GB Black
+UPDATE product_variants SET stock_quantity = 2 WHERE id = 1;
+UPDATE product_variants SET stock_quantity = 0 WHERE id = 2;
+UPDATE product_variants SET stock_quantity = 5 WHERE id = 3;
 
 SELECT id, stock_quantity, price,
        CONCAT(size, 'GB ', color) as variant
